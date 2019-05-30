@@ -52,6 +52,7 @@ class IMDB:
         self.conn = conn
         self.df = pd.read_sql(sql, self.conn)
         self.columns = list(self.df.columns)
+        self.category = 'genre'
 
     def get_df(self, sql="SELECT * FROM movie;"):
         """Custom sql query statement on dataframe"""
@@ -60,17 +61,22 @@ class IMDB:
     def remove_null(self, cols_to_clean=['budget', 'gross']):
         """Since columns like budget and gross are only useful if not null
             this function removes all rows with null values in 'cols_to_clean'"""
+        if self.category == 'pair':
+            cols_to_clean = ['imdb_score','director_name','actor_1_name']
         return self.df.dropna(axis=0, subset=cols_to_clean)
 
-    def split_vals(self, row, category = None):
+    def split_vals(self, row):
         """Depending on aggregation category, this applies two custom splitting
             functions on row to make a list of values"""
-        if category is None:
-            category = self.category
+        category = self.category
         if category == 'genre':
             return row.genres.split("|")
         elif category == 'actor':
             return filter(None, [row.director_name, row.actor_1_name, row.actor_2_name, row.actor_3_name])
+        elif category == 'pair':
+            l=[]
+            l.append(str(row['director_name']+"|"+row['actor_1_name']))
+            return l
 
     def aggregate(self, category='genre', metric_cols=None):
         """This function does two things while iterating row by row through dataset:
@@ -79,11 +85,13 @@ class IMDB:
             2. Aggregates metric columns by key
 
            Note: defaultdict is used in order to prevent looping through twice
-            keys are created as they are updated
+            i.e. keys are created as they are updated
         """
         self.category = category
         if metric_cols is None:
             metric_cols = ['budget', 'gross']
+        if self.category == 'pair':
+            metric_cols = ['imdb_score']
         dd = defaultdict(lambda: defaultdict(int))
         profit_df = self.remove_null()
         for index, row in profit_df.iterrows():
@@ -96,25 +104,37 @@ class IMDB:
 
     def top_ten(self, category='genre'):
         """This function converts the defaultdict into a clean pandas dataframe"""
-        self.aggregate(category)
-        df = pd.DataFrame.from_dict(self.aggregated_df, orient='index')
+        dd = self.aggregate(category)
+        df = pd.DataFrame.from_dict(dd, orient='index')
         cat = 'undefined_category'
         pt = 'undefined_profit'
+        cols = [cat, 'count', 'budget', 'gross', pt]
         if self.category == 'genre':
             cat = 'genre'
             pt = 'profit_index'
             df[pt] = (df['gross'] - df['budget']) / df['budget']
+            cols = [cat, 'count', 'budget', 'gross', pt]
+            tt = df.sort_values(by=[pt], ascending=False).reset_index()
         elif self.category == 'actor':
             cat = 'actors_and_directors'
             pt = 'profit'
             df[pt] = df['gross'] - df['budget']
-        tt = df.sort_values(by=[pt], ascending=False).reset_index()
-        tt.columns = [cat, 'count', 'budget', 'gross', pt]
+            cols = [cat, 'count', 'budget', 'gross', pt]
+            tt = df.sort_values(by=[pt], ascending=False).reset_index()
+        elif self.category == 'pair':
+            cat = 'director_actor_pair'
+            pt = 'avg_imdb_score'
+            df[pt] = df['imdb_score']/df['count']
+            cols = [cat, 'count', 'imdb_score', pt]
+            df = df[df['count']>=3].sort_values(by=['avg_imdb_score'],ascending=False)
+            tt = df.sort_values(by=[pt], ascending=False).reset_index()
+        tt.columns = cols
         return tt.head(10)
 
     def metrics_by_year(self):
-        """BONUS: I was planning on this being a cool visual display of a few metrics
-            over time, but decided just to leave it as a demonstration of a sql query """
+        """I was planning on this being a cool visual display of a few metrics by year,
+            but decided just to leave it as a demonstration of a sql query not knowing
+            in what format this code would be reviewed."""
         query = '''
             SELECT 
                 title_year, 

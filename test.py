@@ -60,15 +60,17 @@ def test_IMDB_remove_null(setup_IMDB):
 
 def test_IMDB_split_vals(setup_IMDB):
     for index, row in setup_IMDB.df.head(1).iterrows():
-        assert setup_IMDB.split_vals(row,'genre') == row.genres.split("|"), "Failed genre split"
-        assert list(setup_IMDB.split_vals(row,'actor')) == list(filter(None, [row.director_name, row.actor_1_name, row.actor_2_name, row.actor_3_name])), "Failed actor and director split"
+        setup_IMDB.category = 'genre'
+        assert setup_IMDB.split_vals(row) == row.genres.split("|"), "Failed genre split"
+        setup_IMDB.category ='actor'
+        assert list(setup_IMDB.split_vals(row)) == list(filter(None, [row.director_name, row.actor_1_name, row.actor_2_name, row.actor_3_name])), "Failed actor and director split"
 
 def test_IMDB_aggregate(setup_IMDB):
     dd = setup_IMDB.aggregate('genre',['budget','gross'])
     assert list(dict(dict(dd)['Action']).keys()) == ['count', 'budget', 'gross'], "Dictionary keys not as expected"
 
 def test_IMDB_top_ten_genre(setup_IMDB):
-    tt = setup_IMDB.top_ten()
+    tt = setup_IMDB.top_ten(category='genre')
     assert list(tt) == ['genre', 'count', 'budget', 'gross', 'profit_index'], 'Output of columns not as expected'
     assert list(tt.genre) == ['Documentary',
                              'Music',
@@ -83,7 +85,7 @@ def test_IMDB_top_ten_genre(setup_IMDB):
     assert round(tt.profit_index.mean(),3) == 0.418
 
 def test_IMDB_top_ten_actor(setup_IMDB):
-    tt = setup_IMDB.top_ten('actor')
+    tt = setup_IMDB.top_ten(category='actor')
     assert list(tt) == ['actors_and_directors', 'count', 'budget', 'gross', 'profit'], 'Output of columns not as expected'
     assert list(tt.actors_and_directors) == ['Steven Spielberg',
                                              'Harrison Ford',
@@ -96,6 +98,10 @@ def test_IMDB_top_ten_actor(setup_IMDB):
                                              'Bradley Cooper',
                                              'James Cameron'], "Order/name of actors and directors not as expected"
     assert round(tt.profit.sum(),-5) == 16695500000, "Profit for actors and directors not as expected"
+
+def test_IMDB_top_ten_pairs(setup_IMDB):
+    tt = setup_IMDB.top_ten(category='pair')
+    assert tt['avg_imdb_score'].max() == 8.6, 'Actor - Director pairs not correct'
 
 def test_IMDB_metrics_by_year(setup_IMDB):
     mby = setup_IMDB.metrics_by_year()

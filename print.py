@@ -20,10 +20,6 @@ print("\n2b. Top Ten Actors or Directors from IMDB by Profit (i.e. Net Profit)")
 print("\tProfit defined as 'gross'-'budget'\n")
 print(actor.to_string(index=False))
 
-bonus = imdb.metrics_by_year()
-bonus['avg_gross'] = bonus['avg_gross'].map('${:,.2f}'.format)
-bonus['avg_budget'] = bonus['avg_budget'].map('${:,.2f}'.format)
-print("\n3c. BONUS: Average IMDB Score by year since 1950\n")
-response = input("Would you ready to see a not particularly interesting 66 row dataset>? \n>>>>>>>Input (y/n):")
-if response.lower() in ['y','yes']:
-    print(bonus.to_string(index=False))
+bonus = imdb.top_ten('pair')
+print("\n3c. BONUS: Average IMDB Score by Director and Actor pair with at least 3 movies\n")
+print(bonus.to_string(index=False))
